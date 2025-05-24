@@ -4,12 +4,16 @@
   "private": true,
   "scripts": {
     "start": "node ./bin/www",
-    "gcloud-proxy:start": "cloud-sql-proxy bold-crow-460315-q8:us-central1:smarteventos --credentials-file=./secrets/google-cloud-service-account.json --port=3306"
+    "dev": "nodemon ./bin/www",
+    "gcloud-proxy:start": "cloud-sql-proxy bold-crow-460315-q8:southamerica-east1:apae-smart-eventos --credentials-file=./secrets/google-cloud-service-account.json --port=3306"
   },
   "dependencies": {
     "cookie-parser": "~1.4.4",
     "debug": "~2.6.9",
+    "dotenv": "^16.5.0",
     "express": "~4.16.1",
-    "morgan": "~1.9.1"
+    "morgan": "~1.9.1",
+    "mysql2": "^3.14.1",
+    "nodemon": "^3.1.10"
   }
 }
