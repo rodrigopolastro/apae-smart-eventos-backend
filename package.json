@@ -3,7 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "start": "node ./bin/www"
+    "start": "node ./bin/www",
+    "gcloud-proxy:start": "cloud-sql-proxy bold-crow-460315-q8:us-central1:smarteventos --credentials-file=./secrets/google-cloud-service-account.json --port=3306"
   },
   "dependencies": {
     "cookie-parser": "~1.4.4",
