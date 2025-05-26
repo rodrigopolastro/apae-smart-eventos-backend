@@ -24,8 +24,7 @@ CREATE TABLE event_ticket_types (
     name VARCHAR (100) NOT NULL,
     description TEXT,
     price FLOAT,
-    total_quantity INT NOT NULL,
-    available_quantity INT NOT NULL,
+    quantity INT NOT NULL,
 
     FOREIGN KEY (event_id) REFERENCES events (id)
 );
