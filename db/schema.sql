@@ -17,3 +17,15 @@ CREATE TABLE events (
     event_type ENUM('public', 'private'),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE event_ticket_types (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    event_id INT NOT NULL,
+    name VARCHAR (100) NOT NULL,
+    description TEXT,
+    price FLOAT,
+    total_quantity INT NOT NULL,
+    available_quantity INT NOT NULL,
+
+    FOREIGN KEY (event_id) REFERENCES events (id)
+);
