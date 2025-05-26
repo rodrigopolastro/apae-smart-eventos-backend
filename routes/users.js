@@ -13,7 +13,6 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const [rows] = await db.query('SELECT * FROM users WHERE id = ?', [req.params.id]);
-    console.log(rows);
     if (rows.length === 0) {
       res.status(httpStatus.NOT_FOUND).json({ message: 'User Not Found.' });
     }
