@@ -66,4 +66,38 @@ router.post('/login', async (req, res) => {
   }
 });
 
+router.post('/refresh', async (req, res) => {
+  try {
+    if (!req.body.refreshToken) {
+      return res
+        .status(httpStatus.BAD_REQUEST)
+        .json({ message: 'Your must sent the refresh token.' });
+    }
+
+    const tokenVerification = jwt.verify(
+      req.body.refreshToken,
+      process.env.JWT_SECRET,
+      (error, decodedToken) => {
+        if (error) {
+          return { isTokenValid: false, message: 'Invalid or expired refresh token.' };
+        }
+        return { isTokenValid: true, decodedToken: decodedToken };
+      }
+    );
+    if (!tokenVerification.isTokenValid) {
+      return res.status(httpStatus.FORBIDDEN).json({ message: tokenVerification.message });
+    }
+    const user = {
+      id: tokenVerification.decodedToken.id,
+      type: tokenVerification.decodedToken.type,
+    };
+    const accessToken = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: '15m' });
+
+    res.json({ accessToken });
+  } catch (error) {
+    console.error(error);
+    res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error' });
+  }
+});
+
 module.exports = router;
