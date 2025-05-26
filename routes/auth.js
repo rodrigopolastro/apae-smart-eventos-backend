@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db/db');
 const httpStatus = require('../constants/httpStatusesCodes');
+const jwt = require('jsonwebtoken');
+require('dotenv').config();
 
 router.post('/signup', async (req, res) => {
   try {
@@ -19,9 +21,14 @@ router.post('/signup', async (req, res) => {
       [req.body.email, req.body.password, req.body.name, 'associate']
     );
 
-    res
-      .status(httpStatus.CREATED)
-      .json({ message: 'User signed up successfully!', insertId: result.insertId });
+    const user = {
+      id: result.insertId,
+      type: 'associate',
+    };
+    const accessToken = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: '15m' });
+    const refreshToken = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: '7d' });
+
+    res.status(httpStatus.CREATED).json({ user, accessToken, refreshToken });
   } catch (error) {
     console.error(error);
     res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error' });
@@ -45,7 +52,14 @@ router.post('/login', async (req, res) => {
       return res.status(httpStatus.UNAUTHORIZED).json({ message: 'Invalid email or password.' });
     }
 
-    res.json(rows[0]);
+    const user = {
+      id: rows[0].id,
+      type: rows[0].user_type,
+    };
+    const accessToken = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: '15m' });
+    const refreshToken = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: '7d' });
+
+    res.json({ user, accessToken, refreshToken });
   } catch (error) {
     console.error(error);
     res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error' });
