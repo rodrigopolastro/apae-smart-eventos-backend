@@ -56,3 +56,29 @@ INSERT INTO event_ticket_types (
         5,
         5
     );
+
+-- cadastra ingressos comprados para o evento de exemplo
+INSERT INTO tickets (
+    ticket_type_id,
+    associate_id,
+    status,
+    used_at,
+) VALUES 
+    (
+        1,
+        2,
+        'used',
+        '2025-05-31 09:50:00'
+    ),
+    (
+        2,
+        1,
+        'used',
+        '2025-05-31 09:51:00'
+    ),
+    (
+        3,
+        2,
+        'not used',
+        NULL
+    );
