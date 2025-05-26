@@ -1,3 +1,4 @@
+-- [001] - create users table
 CREATE TABLE users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     email VARCHAR(100) NOT NULL UNIQUE,
@@ -7,6 +8,7 @@ CREATE TABLE users (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- [002] - create events table
 CREATE TABLE events (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -18,6 +20,7 @@ CREATE TABLE events (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- [003] - create event_ticket_types table
 CREATE TABLE event_ticket_types (
     id INT AUTO_INCREMENT PRIMARY KEY,
     event_id INT NOT NULL,
@@ -29,6 +32,7 @@ CREATE TABLE event_ticket_types (
     FOREIGN KEY (event_id) REFERENCES events (id)
 );
 
+-- [004] - create tickets table
 CREATE TABLE tickets (
     id INT AUTO_INCREMENT PRIMARY KEY,
     ticket_type_id INT NOT NULL,
@@ -40,3 +44,6 @@ CREATE TABLE tickets (
     FOREIGN KEY (associate_id) REFERENCES users (id)
     FOREIGN KEY (ticket_type_id) REFERENCES event_ticket_types (id)
 );
+
+-- [005] - add "qr_code_id" column to tickets table
+ALTER TABLE tickets ADD qr_code_id VARCHAR(36) UNIQUE;
