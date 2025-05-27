@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db/db');
 const httpStatus = require('../constants/httpStatusesCodes');
 const uuid = require('uuid');
+const ticketsServices = require('../services/tickets');
 
 // Get ticket by id
 router.get('/:id', async (req, res) => {
@@ -27,21 +28,21 @@ router.get('/printTicket/:qrCodeId', async (req, res) => {
     }
 
     const [rows] = await db.query(
-      `
-        SELECT
-            t.id,
-            t.ticket_type_id,
-            t.associate_id,
-            t.status,
-            t.used_at,
-            t.purchased_at,
-            u.name,
-            etp.name,
-            etp.description,
-            etp.price,
-            e.name,
-            e.location,
-            e.date_time
+      `SELECT
+            t.id ticketId,
+            t.ticket_type_id ticketTypeId,
+            t.associate_id userId,
+            t.status status,
+            t.used_at usedAt,
+            t.purchased_at purchasedAt,
+            t.qr_code_id qrCodeId,
+            u.name userName,
+            etp.name ticketType,
+            etp.description ticketTypeDescription,
+            etp.price price,
+            e.name eventName,
+            e.location eventLocation,
+            e.date_time eventDateTime
         FROM tickets t
         INNER JOIN users u ON u.id = t.associate_id        
         INNER JOIN event_ticket_types etp ON etp.id = t.ticket_type_id
@@ -52,7 +53,11 @@ router.get('/printTicket/:qrCodeId', async (req, res) => {
     if (rows.length === 0) {
       res.status(httpStatus.NOT_FOUND).json({ message: 'Ticket Not Found.' });
     }
+    if (rows[0].status === 'used') {
+      return res.status(httpStatus.FORBIDDEN).json({ message: 'Ticket has already been used.' });
+    }
 
+    let teste = ticketsServices.generateTicketPdf(rows[0]);
     res.json(rows[0]);
   } catch (error) {
     console.error(error);
