@@ -16,9 +16,7 @@ const generateTicketPdf = async (ticket) => {
     path.join(__dirname, '../templates/ticket-template.html'),
     'utf8'
   );
-
   const template = handlebars.compile(templateHtml);
-
   const html = template({
     ...ticket,
     formattedDate: formatDate(ticket.eventDateTime),

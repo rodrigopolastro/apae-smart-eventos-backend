@@ -21,7 +21,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // get ticket info by qrCodeId for printing
-router.get('/printTicket/:qrCodeId', async (req, res) => {
+router.get('/:qrCodeId/printTicket', async (req, res) => {
   try {
     if (!req.params.qrCodeId) {
       return res.status(httpStatus.BAD_REQUEST).json({ message: 'Inform the ticket QR Code' });
@@ -32,7 +32,13 @@ router.get('/printTicket/:qrCodeId', async (req, res) => {
             t.id ticketId,
             t.ticket_type_id ticketTypeId,
             t.associate_id userId,
-            t.status status,
+            (CASE
+                WHEN t.status = 'not used' THEN 'Não utilizado'
+                WHEN t.status = 'used' THEN "Utilizado"
+                WHEN t.status = 'expired' THEN "Expirado"
+                WHEN t.status = 'waiting payment' THEN "Aguardando Pagamento"
+                ELSE '...'
+            END) AS status,
             t.used_at usedAt,
             t.purchased_at purchasedAt,
             t.qr_code_id qrCodeId,
