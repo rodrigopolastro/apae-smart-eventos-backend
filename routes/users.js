@@ -24,4 +24,16 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// get tickets of user
+router.get('/:id/tickets', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM tickets WHERE associate_id = ?', [req.params.id]);
+
+    res.json(rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error.' });
+  }
+});
+
 module.exports = router;
