@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db/db');
 const httpStatus = require('../constants/httpStatusesCodes');
+const { generateSignedUrl } = require('../services/generateSignedUrl');
 
 // get all events
 router.get('/', async (req, res) => {
@@ -60,6 +61,36 @@ router.get('/:id/tickets', async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Internal server error.' });
+  }
+});
+
+router.get('/:id/imageUrl', async (req, res) => {
+  try {
+    if (!req.params.id) {
+      return res.status(httpStatus.BAD_REQUEST).json({ message: 'Event id not sent or invalid.' });
+    }
+
+    const [rows] = await db.query(
+      'SELECT cover_image_bucket, cover_image_path FROM events WHERE id = ?',
+      [req.params.id]
+    );
+    if (rows.length === 0) {
+      return res.status(httpStatus.NOT_FOUND).json({ message: 'Event Not Found.' });
+    }
+    if (!rows[0].cover_image_bucket || !rows[0].cover_image_path) {
+      return res
+        .status(httpStatus.NOT_FOUND)
+        .json({ message: 'Image URL not found for this event.' });
+    }
+
+    const bucketName = rows[0].cover_image_bucket;
+    const imagePath = rows[0].cover_image_path;
+    const imageUrl = await generateSignedUrl(bucketName, `events-covers/${imagePath}`);
+
+    res.json({ imageUrl });
+  } catch (error) {
+    console.error(error);
+    res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error.' });
   }
 });
 

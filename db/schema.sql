@@ -47,3 +47,7 @@ CREATE TABLE tickets (
 
 -- [005] - add "qr_code_id" column to tickets table
 ALTER TABLE tickets ADD qr_code_id VARCHAR(36) UNIQUE;
+
+-- [006] - add "cover_image_bucket" and "cover_image_path" to events table
+ALTER TABLE events ADD cover_image_bucket VARCHAR(100);
+ALTER TABLE events ADD cover_image_path VARCHAR(100);
