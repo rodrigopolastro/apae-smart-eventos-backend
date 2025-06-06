@@ -50,7 +50,7 @@ router.get('/:qrCodeId/printTicket', async (req, res) => {
             e.location eventLocation,
             e.date_time eventDateTime
         FROM tickets t
-        INNER JOIN users u ON u.id = t.associate_id        
+        INNER JOIN users u ON u.id = t.associate_id
         INNER JOIN event_ticket_types etp ON etp.id = t.ticket_type_id
         INNER JOIN events e ON e.id = etp.event_id
         WHERE qr_code_id = ?`,
@@ -59,12 +59,10 @@ router.get('/:qrCodeId/printTicket', async (req, res) => {
     if (rows.length === 0) {
       res.status(httpStatus.NOT_FOUND).json({ message: 'Ticket Not Found.' });
     }
-    if (rows[0].status === 'used') {
-      return res.status(httpStatus.FORBIDDEN).json({ message: 'Ticket has already been used.' });
-    }
 
-    let teste = ticketsServices.generateTicketPdf(rows[0]);
-    res.json(rows[0]);
+    const ticketPdf = ticketsServices.generateTicketPdf(rows[0]);
+    res.contentType('application/pdf');
+    res.send(ticketPdf);
   } catch (error) {
     console.error(error);
     res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error.' });
