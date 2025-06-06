@@ -62,19 +62,38 @@ router.get('/printTicket/:qrCodeId', async (req, res) => {
 
 // purchase ticket
 router.post('/purchase', async (req, res) => {
-  try {
-    if (!req.body.tickets || !Array.isArray(req.body.tickets) || req.body.tickets.length === 0) {
-      console.error('"tickets" must bt an array with at least one ticket.');
-      return res
-        .status(httpStatus.BAD_REQUEST)
-        .json({ message: 'Inform the list of tickets to purchase' });
-    }
+  /* EXPECTED REQUEST BODY
+  {
+    "associateId": 1,
+    "tickets": [
+      {"ticketTypeId": 3},
+      {"ticketTypeId": 3}
+    ]
+  }*/
 
+  try {
     if (!req.body.associateId) {
       console.error('Request missing the "associateId".');
       return res
         .status(httpStatus.BAD_REQUEST)
         .json({ message: 'Inform the associate responsible for the purchase' });
+    }
+
+    const [rows] = await db.query('SELECT id, user_type FROM users WHERE id = ?', [
+      req.body.associateId,
+    ]);
+    if (rows.length === 0 || rows[0].user_type !== 'associate') {
+      console.error('Invalid "associateId" or user is not an associate.');
+      return res
+        .status(httpStatus.FORBIDDEN)
+        .json({ message: 'Invalid associate or user is not an associate.' });
+    }
+
+    if (!req.body.tickets || !Array.isArray(req.body.tickets) || req.body.tickets.length === 0) {
+      console.error('"tickets" must bt an array with at least one ticket.');
+      return res
+        .status(httpStatus.BAD_REQUEST)
+        .json({ message: 'Inform the list of tickets to purchase' });
     }
 
     const tickets = req.body.tickets;
