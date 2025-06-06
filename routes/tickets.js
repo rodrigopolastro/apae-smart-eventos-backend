@@ -71,19 +71,75 @@ router.get('/:qrCodeId/printTicket', async (req, res) => {
 
 // purchase ticket
 router.post('/purchase', async (req, res) => {
+  /* EXPECTED REQUEST BODY
+  {
+    "associateId": 1,
+    "tickets": [
+      {"ticketTypeId": 3},
+      {"ticketTypeId": 3}
+    ]
+  }*/
+
   try {
-    if (!req.body.ticketTypeId || !req.body.associateId) {
+    if (!req.body.associateId) {
+      console.error('Request missing the "associateId".');
       return res
         .status(httpStatus.BAD_REQUEST)
-        .json({ message: 'Inform the associate and the ticket type' });
+        .json({ message: 'Inform the associate responsible for the purchase' });
     }
 
-    const ticketQrCodeUuid = uuid.v4();
-    const [result] = await db.execute(
-      'INSERT INTO tickets (ticket_type_id, associate_id, status, qr_code_id) VALUES (?, ?, ?, ?)',
-      [req.body.ticketTypeId, req.body.associateId, 'not used', ticketQrCodeUuid]
-    );
-    res.status(httpStatus.CREATED).json({ ticketId: result.insertId });
+    const [rows] = await db.query('SELECT id, user_type FROM users WHERE id = ?', [
+      req.body.associateId,
+    ]);
+    if (rows.length === 0 || rows[0].user_type !== 'associate') {
+      console.error('Invalid "associateId" or user is not an associate.');
+      return res
+        .status(httpStatus.FORBIDDEN)
+        .json({ message: 'Invalid associate or user is not an associate.' });
+    }
+
+    if (!req.body.tickets || !Array.isArray(req.body.tickets) || req.body.tickets.length === 0) {
+      console.error('"tickets" must bt an array with at least one ticket.');
+      return res
+        .status(httpStatus.BAD_REQUEST)
+        .json({ message: 'Inform the list of tickets to purchase' });
+    }
+
+    const tickets = req.body.tickets;
+    const associateId = req.body.associateId;
+    try {
+      const listOfTicketsToInsert = [];
+      for (let i = 0; i < tickets.length; i++) {
+        const ticket = tickets[i];
+        if (!ticket.ticketTypeId) {
+          console.error('Each ticket must have a "ticketTypeId".');
+          return res
+            .status(httpStatus.BAD_REQUEST)
+            .json({ message: 'Inform the ticket type for each ticket' });
+        }
+
+        const ticketQrCodeUuid = uuid.v4();
+        const ticketStatus = 'not used';
+        listOfTicketsToInsert.push([
+          associateId,
+          ticket.ticketTypeId,
+          ticketQrCodeUuid,
+          ticketStatus,
+        ]);
+      }
+
+      await db.query(
+        'INSERT INTO tickets (associate_id, ticket_type_id, qr_code_id, status) VALUES ?',
+        [listOfTicketsToInsert]
+      );
+    } catch (error) {
+      console.error('Transaction error:', error);
+      return res
+        .status(httpStatus.INTERNAL_SERVER_ERROR)
+        .json({ message: 'Internal server error.' });
+    }
+
+    res.status(httpStatus.CREATED).json({ message: 'Tickets purchased successfully.' });
   } catch (error) {
     console.error(error);
     res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error.' });
