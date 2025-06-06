@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db/db');
 const httpStatus = require('../constants/httpStatusesCodes');
 const uuid = require('uuid');
+const ticketsServices = require('../services/tickets');
 
 // Get ticket by id
 router.get('/:id', async (req, res) => {
@@ -20,30 +21,36 @@ router.get('/:id', async (req, res) => {
 });
 
 // get ticket info by qrCodeId for printing
-router.get('/printTicket/:qrCodeId', async (req, res) => {
+router.get('/:qrCodeId/printTicket', async (req, res) => {
   try {
     if (!req.params.qrCodeId) {
       return res.status(httpStatus.BAD_REQUEST).json({ message: 'Inform the ticket QR Code' });
     }
 
     const [rows] = await db.query(
-      `
-        SELECT
-            t.id,
-            t.ticket_type_id,
-            t.associate_id,
-            t.status,
-            t.used_at,
-            t.purchased_at,
-            u.name,
-            etp.name,
-            etp.description,
-            etp.price,
-            e.name,
-            e.location,
-            e.date_time
+      `SELECT
+            t.id ticketId,
+            t.ticket_type_id ticketTypeId,
+            t.associate_id userId,
+            (CASE
+                WHEN t.status = 'not used' THEN 'Não utilizado'
+                WHEN t.status = 'used' THEN "Utilizado"
+                WHEN t.status = 'expired' THEN "Expirado"
+                WHEN t.status = 'waiting payment' THEN "Aguardando Pagamento"
+                ELSE '...'
+            END) AS status,
+            t.used_at usedAt,
+            t.purchased_at purchasedAt,
+            t.qr_code_id qrCodeId,
+            u.name userName,
+            etp.name ticketType,
+            etp.description ticketTypeDescription,
+            etp.price price,
+            e.name eventName,
+            e.location eventLocation,
+            e.date_time eventDateTime
         FROM tickets t
-        INNER JOIN users u ON u.id = t.associate_id        
+        INNER JOIN users u ON u.id = t.associate_id
         INNER JOIN event_ticket_types etp ON etp.id = t.ticket_type_id
         INNER JOIN events e ON e.id = etp.event_id
         WHERE qr_code_id = ?`,
@@ -53,7 +60,9 @@ router.get('/printTicket/:qrCodeId', async (req, res) => {
       res.status(httpStatus.NOT_FOUND).json({ message: 'Ticket Not Found.' });
     }
 
-    res.json(rows[0]);
+    const ticketPdf = ticketsServices.generateTicketPdf(rows[0]);
+    res.contentType('application/pdf');
+    res.send(ticketPdf);
   } catch (error) {
     console.error(error);
     res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error.' });
