@@ -90,4 +90,32 @@ router.post('/purchase', async (req, res) => {
   }
 });
 
+router.get('/:qrCodeId/validateTicket', async (req, res) => {
+  try {
+    if (!req.params.qrCodeId) {
+      return res.status(httpStatus.BAD_REQUEST).json({ message: 'Inform the ticket QR Code' });
+    }
+
+    //already used ticket is considered invalid
+    const [rows] = await db.query(
+      `SELECT (IF(t.status = 'used', 'invalid', 'valid')) AS isTicketValid
+        FROM tickets t WHERE t.qr_code_id = ?`,
+      [req.params.qrCodeId]
+    );
+
+    let isTicketValid;
+    if (rows.length > 0) {
+      isTicketValid = rows[0].isTicketValid === 'valid';
+    } else {
+      console.log('invalid ticket code');
+      isTicketValid = false;
+    }
+
+    res.json({ isTicketValid });
+  } catch (error) {
+    console.error(error);
+    res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error.' });
+  }
+});
+
 module.exports = router;
