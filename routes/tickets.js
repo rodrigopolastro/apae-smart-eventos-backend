@@ -4,6 +4,7 @@ const db = require('../db/db');
 const httpStatus = require('../constants/httpStatusesCodes');
 const uuid = require('uuid');
 const ticketsServices = require('../services/tickets');
+const { getTicketByQrCodeId } = require('../models/tickets');
 
 // Get ticket by id
 router.get('/:id', async (req, res) => {
@@ -27,40 +28,12 @@ router.get('/:qrCodeId/printTicket', async (req, res) => {
       return res.status(httpStatus.BAD_REQUEST).json({ message: 'Inform the ticket QR Code' });
     }
 
-    const [rows] = await db.query(
-      `SELECT
-            t.id ticketId,
-            t.ticket_type_id ticketTypeId,
-            t.associate_id userId,
-            (CASE
-                WHEN t.status = 'not used' THEN 'Não utilizado'
-                WHEN t.status = 'used' THEN "Utilizado"
-                WHEN t.status = 'expired' THEN "Expirado"
-                WHEN t.status = 'waiting payment' THEN "Aguardando Pagamento"
-                ELSE '...'
-            END) AS status,
-            t.used_at usedAt,
-            t.purchased_at purchasedAt,
-            t.qr_code_id qrCodeId,
-            u.name userName,
-            etp.name ticketType,
-            etp.description ticketTypeDescription,
-            etp.price price,
-            e.name eventName,
-            e.location eventLocation,
-            e.date_time eventDateTime
-        FROM tickets t
-        INNER JOIN users u ON u.id = t.associate_id
-        INNER JOIN event_ticket_types etp ON etp.id = t.ticket_type_id
-        INNER JOIN events e ON e.id = etp.event_id
-        WHERE qr_code_id = ?`,
-      [req.params.qrCodeId]
-    );
-    if (rows.length === 0) {
+    const ticket = await getTicketByQrCodeId(req.params.qrCodeId);
+    if (!ticket) {
       res.status(httpStatus.NOT_FOUND).json({ message: 'Ticket Not Found.' });
     }
 
-    const ticketPdf = ticketsServices.generateTicketPdf(rows[0]);
+    const ticketPdf = await ticketsServices.generateTicketPdf(ticket);
     res.contentType('application/pdf');
     res.send(ticketPdf);
   } catch (error) {
