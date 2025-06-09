@@ -1,172 +1,47 @@
+// routes/tickets.js
+
 const express = require('express');
 const router = express.Router();
-const db = require('../db/db');
-const httpStatus = require('../constants/httpStatusesCodes');
-const uuid = require('uuid');
-const ticketsServices = require('../services/tickets');
-const { getTicketByQrCodeId } = require('../models/tickets');
+// Assuming you're using dotenv for local development
+require('dotenv').config();
 
-// Get ticket by id
-router.get('/:id', async (req, res) => {
+router.get('/tickets/:ticketId/generate-pdf', async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT * FROM tickets WHERE id = ?', [req.params.id]);
-    if (rows.length === 0) {
-      res.status(httpStatus.NOT_FOUND).json({ message: 'Ticket Not Found.' });
+    const ticketId = req.params.ticketId;
+
+    // --- LINE 41 IS LIKELY HERE OR AROUND HERE ---
+    const pdfGeneratorServiceUrl = process.env.PDF_GENERATOR_SERVICE_URL; // This is the variable in question
+
+    // Debugging line:
+    console.log('PDF Generator URL:', pdfGeneratorServiceUrl);
+
+    if (!pdfGeneratorServiceUrl) {
+      console.error('Error: PDF_GENERATOR_SERVICE_URL is not defined in environment variables.');
+      return res.status(500).json({ error: 'PDF generator service URL is not configured.' });
     }
 
-    res.json(rows[0]);
+    const response = await fetch(`${pdfGeneratorServiceUrl}/generate-ticket-pdf`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ ticketId: ticketId }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Error from PDF generator service: ${response.status} - ${errorText}`);
+      return res.status(response.status).json({ error: 'Failed to generate PDF' });
+    }
+
+    const pdfBlob = await response.arrayBuffer();
+    const pdfBase64 = Buffer.from(pdfBlob).toString('base64');
+
+    res.status(200).json({ pdf: pdfBase64 });
+
   } catch (error) {
-    console.error(error);
-    res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error.' });
-  }
-});
-
-// get ticket info by qrCodeId for printing
-router.get('/:qrCodeId/printTicket', async (req, res) => {
-  try {
-    if (!req.params.qrCodeId) {
-      return res.status(httpStatus.BAD_REQUEST).json({ message: 'Inform the ticket QR Code' });
-    }
-
-    const ticket = await getTicketByQrCodeId(req.params.qrCodeId);
-    if (!ticket) {
-      res.status(httpStatus.NOT_FOUND).json({ message: 'Ticket Not Found.' });
-    }
-
-    const USE_SERVERLESS_FUNCTION = true;
-
-    let ticketPdf;
-    if (USE_SERVERLESS_FUNCTION) {
-      console.log('Using serverless function to generate PDF');
-      const response = await fetch(`${process.env.GENERATE_PDF_SERVERLESS_URL}`, {
-        method: 'POST',
-        body: JSON.stringify(ticket),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to generate PDF: ${response.statusText}`);
-      }
-
-      const arrayBuffer = await response.arrayBuffer();
-      ticketPdf = Buffer.from(arrayBuffer);
-    } else {
-      console.log('Using local service to generate PDF');
-      ticketPdf = await ticketsServices.generateTicketPdf(ticket);
-    }
-
-    res.contentType('application/pdf');
-    res.send(ticketPdf);
-  } catch (error) {
-    console.error(error);
-    res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error.' });
-  }
-});
-
-// purchase ticket
-router.post('/purchase', async (req, res) => {
-  /* EXPECTED REQUEST BODY
-  {
-    "associateId": 1,
-    "tickets": [
-      {"ticketTypeId": 3},
-      {"ticketTypeId": 3}
-    ]
-  }*/
-
-  try {
-    if (!req.body.associateId) {
-      console.error('Request missing the "associateId".');
-      return res
-        .status(httpStatus.BAD_REQUEST)
-        .json({ message: 'Inform the associate responsible for the purchase' });
-    }
-
-    const [rows] = await db.query('SELECT id, user_type FROM users WHERE id = ?', [
-      req.body.associateId,
-    ]);
-    if (rows.length === 0 || rows[0].user_type !== 'associate') {
-      console.error('Invalid "associateId" or user is not an associate.');
-      return res
-        .status(httpStatus.FORBIDDEN)
-        .json({ message: 'Invalid associate or user is not an associate.' });
-    }
-
-    if (!req.body.tickets || !Array.isArray(req.body.tickets) || req.body.tickets.length === 0) {
-      console.error('"tickets" must bt an array with at least one ticket.');
-      return res
-        .status(httpStatus.BAD_REQUEST)
-        .json({ message: 'Inform the list of tickets to purchase' });
-    }
-
-    const tickets = req.body.tickets;
-    const associateId = req.body.associateId;
-    try {
-      const listOfTicketsToInsert = [];
-      for (let i = 0; i < tickets.length; i++) {
-        const ticket = tickets[i];
-        if (!ticket.ticketTypeId) {
-          console.error('Each ticket must have a "ticketTypeId".');
-          return res
-            .status(httpStatus.BAD_REQUEST)
-            .json({ message: 'Inform the ticket type for each ticket' });
-        }
-
-        const ticketQrCodeUuid = uuid.v4();
-        const ticketStatus = 'not used';
-        listOfTicketsToInsert.push([
-          associateId,
-          ticket.ticketTypeId,
-          ticketQrCodeUuid,
-          ticketStatus,
-        ]);
-      }
-
-      await db.query(
-        'INSERT INTO tickets (associate_id, ticket_type_id, qr_code_id, status) VALUES ?',
-        [listOfTicketsToInsert]
-      );
-    } catch (error) {
-      console.error('Transaction error:', error);
-      return res
-        .status(httpStatus.INTERNAL_SERVER_ERROR)
-        .json({ message: 'Internal server error.' });
-    }
-
-    res.status(httpStatus.CREATED).json({ message: 'Tickets purchased successfully.' });
-  } catch (error) {
-    console.error(error);
-    res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error.' });
-  }
-});
-
-router.get('/:qrCodeId/validateTicket', async (req, res) => {
-  try {
-    if (!req.params.qrCodeId) {
-      return res.status(httpStatus.BAD_REQUEST).json({ message: 'Inform the ticket QR Code' });
-    }
-
-    //already used ticket is considered invalid
-    const [rows] = await db.query(
-      `SELECT (IF(t.status = 'used', 'invalid', 'valid')) AS isTicketValid
-        FROM tickets t WHERE t.qr_code_id = ?`,
-      [req.params.qrCodeId]
-    );
-
-    let isTicketValid;
-    if (rows.length > 0) {
-      isTicketValid = rows[0].isTicketValid === 'valid';
-    } else {
-      console.log('invalid ticket code');
-      isTicketValid = false;
-    }
-
-    res.json({ isTicketValid });
-  } catch (error) {
-    console.error(error);
-    res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error.' });
+    console.error('Error in PDF generation route:', error);
+    res.status(500).json({ error: 'Internal server error during PDF generation.' });
   }
 });
 
