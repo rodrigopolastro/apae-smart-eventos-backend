@@ -33,7 +33,30 @@ router.get('/:qrCodeId/printTicket', async (req, res) => {
       res.status(httpStatus.NOT_FOUND).json({ message: 'Ticket Not Found.' });
     }
 
-    const ticketPdf = await ticketsServices.generateTicketPdf(ticket);
+    const USE_SERVERLESS_FUNCTION = true;
+
+    let ticketPdf;
+    if (USE_SERVERLESS_FUNCTION) {
+      console.log('Using serverless function to generate PDF');
+      const response = await fetch(`${process.env.GENERATE_PDF_SERVERLESS_URL}`, {
+        method: 'POST',
+        body: JSON.stringify(ticket),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to generate PDF: ${response.statusText}`);
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      ticketPdf = Buffer.from(arrayBuffer);
+    } else {
+      console.log('Using local service to generate PDF');
+      ticketPdf = await ticketsServices.generateTicketPdf(ticket);
+    }
+
     res.contentType('application/pdf');
     res.send(ticketPdf);
   } catch (error) {
