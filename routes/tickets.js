@@ -1,12 +1,16 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../db/db');
+const db = require('../db/db'); // Certifique-se de que este caminho está correto para o seu módulo de banco de dados
 const httpStatus = require('../constants/httpStatusesCodes'); // Certifique-se de que este caminho está correto
-const uuid = require('uuid');
-const ticketsServices = require('../services/tickets'); // Certifique-se de que este caminho está correto
-const { getTicketByQrCodeId } = require('../models/tickets'); // Certifique-se de que este caminho está correto
+const uuid = require('uuid'); // Para gerar UUIDs para o qr_code_id
+const ticketsServices = require('../services/tickets'); // Certifique-se de que este caminho está correto (para generateTicketPdf local)
+const { getTicketByQrCodeId, getTicketsOfAssociate } = require('../models/tickets'); // Importa as funções do seu models/tickets.js
+
+// Lembre-se de que `require('dotenv').config();` deve estar no seu arquivo principal da aplicação (ex: app.js ou server.js)
+// para carregar as variáveis de ambiente como GENERATE_PDF_SERVERLESS_URL
 
 // --- Rota para obter ticket por ID ---
+// Ex: GET /tickets/123
 router.get('/:id', async (req, res) => {
   try {
     const [rows] = await db.query('SELECT * FROM tickets WHERE id = ?', [req.params.id]);
@@ -22,29 +26,31 @@ router.get('/:id', async (req, res) => {
 });
 
 // --- Rota para obter informações do ticket por qrCodeId para impressão (e gerar PDF) ---
+// Ex: GET /tickets/ABCDEF123456/printTicket
 router.get('/:qrCodeId/printTicket', async (req, res) => {
   try {
     const qrCodeId = req.params.qrCodeId;
 
     if (!qrCodeId) {
-      // Usar httpStatus.BAD_REQUEST para entrada inválida
       return res.status(httpStatus.BAD_REQUEST).json({ message: 'Informe o QR Code do ticket.' });
     }
 
+    // Busca o ticket no banco de dados usando a função do models/tickets.js
     const ticket = await getTicketByQrCodeId(qrCodeId);
     if (!ticket) {
+      // Se o ticket não for encontrado no banco de dados, retorna 404
       return res.status(httpStatus.NOT_FOUND).json({ message: 'Ticket Not Found.' });
     }
 
-    // Configuração para usar função serverless (pode ser configurado via variável de ambiente também)
-    const USE_SERVERLESS_FUNCTION = process.env.USE_SERVERLESS_PDF_GENERATOR === 'true'; // Exemplo de como usar uma env var para isso
+    // Configuração para usar função serverless (controlada por variável de ambiente)
+    // Assegure-se que USE_SERVERLESS_PDF_GENERATOR está definida como 'true' no seu .env ou variáveis de ambiente de produção
+    const USE_SERVERLESS_FUNCTION = process.env.USE_SERVERLESS_PDF_GENERATOR === 'true';
 
     let ticketPdf;
 
     if (USE_SERVERLESS_FUNCTION) {
       console.log('Using serverless function to generate PDF');
 
-      // 1. Verificar se a variável de ambiente está definida ANTES de fazer a requisição
       const pdfServerlessUrl = process.env.GENERATE_PDF_SERVERLESS_URL;
 
       console.log('PDF Serverless URL configured:', pdfServerlessUrl); // Log para depuração
@@ -56,7 +62,6 @@ router.get('/:qrCodeId/printTicket', async (req, res) => {
         });
       }
 
-      // 2. Fazer a requisição para a função serverless
       const response = await fetch(pdfServerlessUrl, {
         method: 'POST',
         body: JSON.stringify(ticket), // Envia os dados do ticket para a função serverless
@@ -65,7 +70,6 @@ router.get('/:qrCodeId/printTicket', async (req, res) => {
         },
       });
 
-      // 3. Tratar a resposta da função serverless
       if (!response.ok) {
         // Tentar obter detalhes do erro da resposta da função serverless
         const errorDetails = await response.text();
@@ -79,20 +83,39 @@ router.get('/:qrCodeId/printTicket', async (req, res) => {
       ticketPdf = Buffer.from(arrayBuffer); // Converte ArrayBuffer para Buffer do Node.js
     } else {
       console.log('Using local service to generate PDF');
-      ticketPdf = await ticketsServices.generateTicketPdf(ticket); // Sua função local
+      // Assume que ticketsServices.generateTicketPdf gera o PDF localmente
+      ticketPdf = await ticketsServices.generateTicketPdf(ticket);
     }
 
     // Enviar o PDF como resposta
-    res.contentType('application/pdf');
-    res.send(ticketPdf);
+    res.contentType('application/pdf'); // Define o tipo de conteúdo da resposta como PDF
+    res.send(ticketPdf); // Envia o Buffer do PDF
   } catch (error) {
     console.error('Error in printTicket route:', error);
-    // Erro genérico do servidor, pois o tratamento específico já foi feito acima
     res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error.' });
   }
 });
 
+// --- NOVA ROTA: Obter todos os tickets de um associado ---
+// Ex: GET /tickets/associate/456/tickets
+router.get('/associate/:associateId/tickets', async (req, res) => {
+  try {
+    const associateId = req.params.associateId;
+    if (!associateId) {
+      return res.status(httpStatus.BAD_REQUEST).json({ message: 'Informe o ID do associado.' });
+    }
+    // Busca os tickets do associado no banco de dados usando a função do models/tickets.js
+    const tickets = await getTicketsOfAssociate(associateId);
+    res.json(tickets); // Retorna a lista de tickets como JSON
+  } catch (error) {
+    console.error('Error fetching tickets for associate:', error);
+    res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error.' });
+  }
+});
+
+
 // --- Rota para compra de tickets ---
+// Ex: POST /tickets/purchase
 router.post('/purchase', async (req, res) => {
   /* EXPECTED REQUEST BODY
   {
@@ -175,6 +198,7 @@ router.post('/purchase', async (req, res) => {
 });
 
 // --- Rota para validar ticket por qrCodeId ---
+// Ex: GET /tickets/XYZ789/validateTicket
 router.get('/:qrCodeId/validateTicket', async (req, res) => {
   try {
     const qrCodeId = req.params.qrCodeId;
@@ -182,7 +206,7 @@ router.get('/:qrCodeId/validateTicket', async (req, res) => {
       return res.status(httpStatus.BAD_REQUEST).json({ message: 'Informe o QR Code do ticket.' });
     }
 
-    // Um ticket já usado é considerado inválido
+    // Ticket já usado é considerado inválido
     const [rows] = await db.query(
       `SELECT (IF(t.status = 'used', 'invalid', 'valid')) AS isTicketValid
        FROM tickets t WHERE t.qr_code_id = ?`,
