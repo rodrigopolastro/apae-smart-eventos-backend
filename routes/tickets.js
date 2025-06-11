@@ -4,6 +4,7 @@ const db = require('../db/db');
 const httpStatus = require('../constants/httpStatusesCodes');
 const uuid = require('uuid');
 const ticketsServices = require('../services/tickets');
+const { getTicketByQrCodeId } = require('../models/tickets');
 
 // Get ticket by id
 router.get('/:id', async (req, res) => {
@@ -27,40 +28,35 @@ router.get('/:qrCodeId/printTicket', async (req, res) => {
       return res.status(httpStatus.BAD_REQUEST).json({ message: 'Inform the ticket QR Code' });
     }
 
-    const [rows] = await db.query(
-      `SELECT
-            t.id ticketId,
-            t.ticket_type_id ticketTypeId,
-            t.associate_id userId,
-            (CASE
-                WHEN t.status = 'not used' THEN 'Não utilizado'
-                WHEN t.status = 'used' THEN "Utilizado"
-                WHEN t.status = 'expired' THEN "Expirado"
-                WHEN t.status = 'waiting payment' THEN "Aguardando Pagamento"
-                ELSE '...'
-            END) AS status,
-            t.used_at usedAt,
-            t.purchased_at purchasedAt,
-            t.qr_code_id qrCodeId,
-            u.name userName,
-            etp.name ticketType,
-            etp.description ticketTypeDescription,
-            etp.price price,
-            e.name eventName,
-            e.location eventLocation,
-            e.date_time eventDateTime
-        FROM tickets t
-        INNER JOIN users u ON u.id = t.associate_id
-        INNER JOIN event_ticket_types etp ON etp.id = t.ticket_type_id
-        INNER JOIN events e ON e.id = etp.event_id
-        WHERE qr_code_id = ?`,
-      [req.params.qrCodeId]
-    );
-    if (rows.length === 0) {
+    const ticket = await getTicketByQrCodeId(req.params.qrCodeId);
+    if (!ticket) {
       res.status(httpStatus.NOT_FOUND).json({ message: 'Ticket Not Found.' });
     }
 
-    const ticketPdf = ticketsServices.generateTicketPdf(rows[0]);
+    const USE_SERVERLESS_FUNCTION = true;
+
+    let ticketPdf;
+    if (USE_SERVERLESS_FUNCTION) {
+      console.log('Using serverless function to generate PDF');
+      const response = await fetch(`${process.env.GENERATE_PDF_SERVERLESS_URL}`, {
+        method: 'POST',
+        body: JSON.stringify(ticket),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to generate PDF: ${response.statusText}`);
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      ticketPdf = Buffer.from(arrayBuffer);
+    } else {
+      console.log('Using local service to generate PDF');
+      ticketPdf = await ticketsServices.generateTicketPdf(ticket);
+    }
+
     res.contentType('application/pdf');
     res.send(ticketPdf);
   } catch (error) {
@@ -171,6 +167,55 @@ router.get('/:qrCodeId/validateTicket', async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error.' });
+  }
+});
+
+// --- NOVA ROTA: Rota para usar/invalidar um ticket por qrCodeId ---
+// Ex: POST /tickets/XYZ789/useTicket
+router.post('/:qrCodeId/useTicket', async (req, res) => {
+  try {
+    const qrCodeId = req.params.qrCodeId;
+    if (!qrCodeId) {
+      return res.status(httpStatus.BAD_REQUEST).json({ message: 'Informe o QR Code do ticket.' });
+    }
+
+    // 1. Verificar a validade atual do ticket
+    const [ticketRows] = await db.query(
+      `SELECT id, status FROM tickets WHERE qr_code_id = ?`,
+      [qrCodeId]
+    );
+
+    if (ticketRows.length === 0) {
+      console.log(`Tentativa de usar ticket com QR Code '${qrCodeId}' que não existe.`);
+      return res.status(httpStatus.NOT_FOUND).json({ message: 'Ticket não encontrado.' });
+    }
+
+    const ticket = ticketRows[0];
+
+    if (ticket.status === 'used') {
+      console.log(`Tentativa de usar ticket com QR Code '${qrCodeId}' que já foi usado.`);
+      return res.status(httpStatus.CONFLICT).json({ message: 'Ticket já utilizado.' });
+    }
+
+    // 2. Atualizar o status do ticket para 'used' (ou 'invalidado')
+    const [updateResult] = await db.query(
+      `UPDATE tickets SET status = 'used' WHERE qr_code_id = ?`,
+      [qrCodeId]
+    );
+
+    if (updateResult.affectedRows === 0) {
+      // Isso raramente deve acontecer se a verificação anterior foi bem-sucedida,
+      // mas é uma boa prática verificar se a atualização realmente afetou alguma linha.
+      console.error(`Falha ao atualizar o status do ticket com QR Code '${qrCodeId}'.`);
+      return res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Erro ao invalidar o ticket.' });
+    }
+
+    // 3. Responder com sucesso
+    res.json({ message: 'Ticket utilizado com sucesso!', qrCodeId: qrCodeId });
+
+  } catch (error) {
+    console.error('Erro na rota useTicket:', error);
+    res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Erro interno ao processar a requisição.' });
   }
 });
 
