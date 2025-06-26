@@ -186,5 +186,46 @@ router.post('/', async (req, res) => {
     res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error.' });
   }
 });
+// DELETE an event by ID
+router.delete('/:id', async (req, res) => {
+  try {
+    const eventId = req.params.id;
 
+    if (!eventId) {
+      return res.status(httpStatus.BAD_REQUEST).json({ message: 'Event ID not provided.' });
+    }
+
+    // 1. Verificar se o evento existe
+    const [eventRows] = await db.query('SELECT id FROM events WHERE id = ?', [eventId]);
+    if (eventRows.length === 0) {
+      return res.status(httpStatus.NOT_FOUND).json({ message: 'Event not found.' });
+    }
+
+    // 2. Deletar ingressos associados ao evento (se houver)
+    // Isso é importante se você não tem ON DELETE CASCADE configurado.
+    // Primeiro, obtemos os event_ticket_type_ids para este evento
+    const [ticketTypes] = await db.query('SELECT id FROM event_ticket_types WHERE event_id = ?', [eventId]);
+    if (ticketTypes.length > 0) {
+      const ticketTypeIds = ticketTypes.map(tt => tt.id);
+      await db.query('DELETE FROM tickets WHERE ticket_type_id IN (?)', [ticketTypeIds]);
+    }
+
+    // 3. Deletar os tipos de ingresso associados ao evento
+    await db.query('DELETE FROM event_ticket_types WHERE event_id = ?', [eventId]);
+
+    // 4. Deletar o evento
+    const [result] = await db.query('DELETE FROM events WHERE id = ?', [eventId]);
+
+    if (result.affectedRows === 0) {
+      // Isso pode acontecer se o evento não foi encontrado, embora já tenhamos verificado
+      return res.status(httpStatus.NOT_FOUND).json({ message: 'Failed to delete event, or event not found.' });
+    }
+
+    res.status(httpStatus.OK).json({ message: `Event ${eventId} and associated data deleted successfully.` });
+
+  } catch (error) {
+    console.error('Error deleting event:', error);
+    res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error while deleting event.' });
+  }
+});
 module.exports = router;
