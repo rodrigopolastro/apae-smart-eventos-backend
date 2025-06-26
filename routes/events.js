@@ -79,8 +79,8 @@ router.get('/:id/imageUrl', async (req, res) => {
     }
     if (!rows[0].cover_image_bucket || !rows[0].cover_image_path) {
       return res
-        .status(httpStatus.NOT_FOUND)
-        .json({ message: 'Image URL not found for this event.' });
+        .status(httpStatus.OK)
+        .json({ imageUrl: null, message: 'Image URL not found for this event.' });
     }
 
     const bucketName = rows[0].cover_image_bucket;
@@ -88,6 +88,99 @@ router.get('/:id/imageUrl', async (req, res) => {
     const imageUrl = await generateSignedUrl(bucketName, `events-covers/${imagePath}`);
 
     res.json({ imageUrl });
+  } catch (error) {
+    console.error(error);
+    res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error.' });
+  }
+});
+
+// estrutura:
+/* 
+{
+  event: {
+    name
+    description
+    location
+    dateTime
+    durationMinutes
+    eventType
+  },
+  "ticketPrices": {
+    "standard":
+    "plus":
+    "vip":
+  }
+  */
+router.post('/', async (req, res) => {
+  try {
+    const event = req.body.event;
+    // const ticketTypes = req.body.ticketTypes;
+    const ticketPrices = req.body.ticketPrices;
+    console.log('body', req.body);
+    if (
+      !event ||
+      !event.name ||
+      !event.description ||
+      !event.location ||
+      !event.dateTime ||
+      !event.durationMinutes ||
+      !event.eventType
+    ) {
+      return res.status(httpStatus.BAD_REQUEST).json({ message: 'Request missing info of event' });
+    }
+
+    if (!ticketPrices.standard || !ticketPrices.plus || !ticketPrices.vip) {
+      return res
+        .status(httpStatus.BAD_REQUEST)
+        .json({ message: 'You must provide the prices of standard, plus and vip tickets' });
+    }
+
+    // if (!ticketTypes || !Array.isArray(ticketTypes) || ticketTypes.length === 0) {
+    //   console.error('"ticketTypes" must be an array with at least one ticket type.');
+    //   return res
+    //     .status(httpStatus.BAD_REQUEST)
+    //     .json({ message: 'Inform the list of ticket types of the event' });
+    // }
+
+    const DEFAULT_COVER_IMAGE_BUCKET = 'apae-smart-eventos-bucket';
+    const DEFAULT_COVER_IMAGE_PATH = 'placeholder.webp';
+    const eventDateTime = new Date(event.dateTime);
+    const [result] = await db.execute(
+      `INSERT INTO events (
+        name, 
+        description, 
+        location, 
+        date_time, 
+        duration_minutes, 
+        event_type,
+        cover_image_bucket,
+        cover_image_path
+      ) VALUES (?, ?, ? ,?, ?, ?, ?, ?)`,
+      [
+        event.name,
+        event.description,
+        event.location,
+        eventDateTime,
+        event.durationMinutes,
+        event.eventType,
+        event.coverImageBucket ?? DEFAULT_COVER_IMAGE_BUCKET,
+        event.coverImagePath ?? DEFAULT_COVER_IMAGE_PATH,
+      ]
+    );
+    const createdEventId = result.insertId;
+
+    const ticketTypesToInsert = [
+      [createdEventId, 'Padrão', 'Ingresso Padrão', parseFloat(ticketPrices.standard), 50],
+      [createdEventId, 'Plus', 'Ingresso Plus', parseFloat(ticketPrices.plus), 50],
+      [createdEventId, 'VIP', 'Ingresso VIP', parseFloat(ticketPrices.vip), 50],
+    ];
+
+    await db.query(
+      'INSERT INTO event_ticket_types (event_id, name, description, price, quantity) VALUES ?',
+      [ticketTypesToInsert]
+    );
+
+    res.json({ message: `Event ${createdEventId} created successfully!` });
   } catch (error) {
     console.error(error);
     res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error.' });
