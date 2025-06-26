@@ -197,9 +197,10 @@ router.post('/:qrCodeId/useTicket', async (req, res) => {
     }
 
     // 2. Atualizar o status do ticket para 'used' (ou 'invalidado')
+    const dataAtual = new Date();
     const [updateResult] = await db.query(
-      `UPDATE tickets SET status = 'used' WHERE qr_code_id = ?`,
-      [qrCodeId]
+      `UPDATE tickets SET status = 'used', used_at = ? WHERE qr_code_id = ?`,
+      [dataAtual, qrCodeId]
     );
 
     if (updateResult.affectedRows === 0) {
