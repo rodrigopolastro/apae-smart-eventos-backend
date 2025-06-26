@@ -180,10 +180,9 @@ router.post('/:qrCodeId/useTicket', async (req, res) => {
     }
 
     // 1. Verificar a validade atual do ticket
-    const [ticketRows] = await db.query(
-      `SELECT id, status FROM tickets WHERE qr_code_id = ?`,
-      [qrCodeId]
-    );
+    const [ticketRows] = await db.query(`SELECT id, status FROM tickets WHERE qr_code_id = ?`, [
+      qrCodeId,
+    ]);
 
     if (ticketRows.length === 0) {
       console.log(`Tentativa de usar ticket com QR Code '${qrCodeId}' que não existe.`);
@@ -207,15 +206,18 @@ router.post('/:qrCodeId/useTicket', async (req, res) => {
       // Isso raramente deve acontecer se a verificação anterior foi bem-sucedida,
       // mas é uma boa prática verificar se a atualização realmente afetou alguma linha.
       console.error(`Falha ao atualizar o status do ticket com QR Code '${qrCodeId}'.`);
-      return res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Erro ao invalidar o ticket.' });
+      return res
+        .status(httpStatus.INTERNAL_SERVER_ERROR)
+        .json({ message: 'Erro ao invalidar o ticket.' });
     }
 
     // 3. Responder com sucesso
     res.json({ message: 'Ticket utilizado com sucesso!', qrCodeId: qrCodeId });
-
   } catch (error) {
     console.error('Erro na rota useTicket:', error);
-    res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Erro interno ao processar a requisição.' });
+    res
+      .status(httpStatus.INTERNAL_SERVER_ERROR)
+      .json({ message: 'Erro interno ao processar a requisição.' });
   }
 });
 

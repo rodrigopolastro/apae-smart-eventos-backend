@@ -54,6 +54,7 @@ router.post('/login', async (req, res) => {
 
     const user = {
       id: rows[0].id,
+      name: rows[0].name,
       type: rows[0].user_type,
     };
     const accessToken = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: '15m' });
