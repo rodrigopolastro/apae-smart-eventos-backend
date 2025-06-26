@@ -1,20 +1,26 @@
-var express = require('express');
-var path = require('path');
-var cookieParser = require('cookie-parser');
-var logger = require('morgan');
+const express = require('express');
+const cors = require('cors');
 
-var indexRouter = require('./routes/index');
-var usersRouter = require('./routes/users');
+const indexRouter = require('./routes/index');
+const authRouter = require('./routes/auth');
+const usersRouter = require('./routes/users');
+const eventsRouter = require('./routes/events');
+const ticketsRouter = require('./routes/tickets');
 
-var app = express();
+const app = express();
 
-app.use(logger('dev'));
+app.use(
+  cors({
+    origin: '*',
+  })
+);
+
 app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-app.use(cookieParser());
-app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/', indexRouter);
+app.use('/auth', authRouter);
 app.use('/users', usersRouter);
+app.use('/events', eventsRouter);
+app.use('/tickets', ticketsRouter);
 
 module.exports = app;
