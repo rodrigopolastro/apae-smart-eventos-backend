@@ -190,6 +190,7 @@ router.post('/', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const eventId = req.params.id;
+  
 
     if (!eventId) {
       return res.status(httpStatus.BAD_REQUEST).json({ message: 'Event ID not provided.' });
