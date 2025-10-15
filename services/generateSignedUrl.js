@@ -1,17 +1,12 @@
-require('dotenv').config();
-const { Storage } = require('@google-cloud/storage');
-const storage = new Storage();
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
-const generateSignedUrl = async (bucketName, filePath) => {
-  const options = {
-    version: 'v4',
-    action: 'read',
-    expires: Date.now() + 15 * 60 * 1000, // 15 minutes
-  };
+const s3 = new S3Client({ region: 'us-east-1' }); // SDK pega credenciais automaticamente
 
-  const [url] = await storage.bucket(bucketName).file(filePath).getSignedUrl(options);
-
+async function generateSignedUrl(bucket, key) {
+  const comando = new GetObjectCommand({ Bucket: bucket, Key: key });
+  const url = await getSignedUrl(s3, comando, { expiresIn: 3600 });
   return url;
-};
+}
 
-module.exports = { generateSignedUrl };
+export { generateSignedUrl };

@@ -77,14 +77,15 @@ router.get('/:id/imageUrl', async (req, res) => {
     if (rows.length === 0) {
       return res.status(httpStatus.NOT_FOUND).json({ message: 'Event Not Found.' });
     }
-    if (!rows[0].cover_image_bucket || !rows[0].cover_image_path) {
+    const event = rows[0];
+    if (!event.cover_image_bucket || !event.cover_image_path) {
       return res
         .status(httpStatus.OK)
         .json({ imageUrl: null, message: 'Image URL not found for this event.' });
     }
 
-    const bucketName = rows[0].cover_image_bucket;
-    const imagePath = rows[0].cover_image_path;
+    const bucketName = event.cover_image_bucket;
+    const imagePath = event.cover_image_path;
     const imageUrl = await generateSignedUrl(bucketName, `events-covers/${imagePath}`);
 
     res.json({ imageUrl });
@@ -190,7 +191,6 @@ router.post('/', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const eventId = req.params.id;
-  
 
     if (!eventId) {
       return res.status(httpStatus.BAD_REQUEST).json({ message: 'Event ID not provided.' });
@@ -205,9 +205,11 @@ router.delete('/:id', async (req, res) => {
     // 2. Deletar ingressos associados ao evento (se houver)
     // Isso é importante se você não tem ON DELETE CASCADE configurado.
     // Primeiro, obtemos os event_ticket_type_ids para este evento
-    const [ticketTypes] = await db.query('SELECT id FROM event_ticket_types WHERE event_id = ?', [eventId]);
+    const [ticketTypes] = await db.query('SELECT id FROM event_ticket_types WHERE event_id = ?', [
+      eventId,
+    ]);
     if (ticketTypes.length > 0) {
-      const ticketTypeIds = ticketTypes.map(tt => tt.id);
+      const ticketTypeIds = ticketTypes.map((tt) => tt.id);
       await db.query('DELETE FROM tickets WHERE ticket_type_id IN (?)', [ticketTypeIds]);
     }
 
@@ -219,14 +221,19 @@ router.delete('/:id', async (req, res) => {
 
     if (result.affectedRows === 0) {
       // Isso pode acontecer se o evento não foi encontrado, embora já tenhamos verificado
-      return res.status(httpStatus.NOT_FOUND).json({ message: 'Failed to delete event, or event not found.' });
+      return res
+        .status(httpStatus.NOT_FOUND)
+        .json({ message: 'Failed to delete event, or event not found.' });
     }
 
-    res.status(httpStatus.OK).json({ message: `Event ${eventId} and associated data deleted successfully.` });
-
+    res.status(httpStatus.OK).json({
+      message: `Event ${eventId} and associated data deleted successfully.`,
+    });
   } catch (error) {
     console.error('Error deleting event:', error);
-    res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error while deleting event.' });
+    res.status(httpStatus.INTERNAL_SERVER_ERROR).json({
+      message: 'Internal server error while deleting event.',
+    });
   }
 });
 module.exports = router;
