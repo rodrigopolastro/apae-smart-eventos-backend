@@ -28,7 +28,6 @@ CREATE TABLE event_ticket_types (
     description TEXT,
     price FLOAT,
     quantity INT NOT NULL,
-
     FOREIGN KEY (event_id) REFERENCES events (id)
 );
 
@@ -40,8 +39,7 @@ CREATE TABLE tickets (
     status ENUM('used', 'not used', 'expired', 'waiting payment'),
     used_at DATETIME,
     purchased_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    FOREIGN KEY (associate_id) REFERENCES users (id)
+    FOREIGN KEY (associate_id) REFERENCES users (id),
     FOREIGN KEY (ticket_type_id) REFERENCES event_ticket_types (id)
 );
 
