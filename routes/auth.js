@@ -40,12 +40,11 @@ router.post('/login', async (req, res) => {
     if (!req.body.email || !req.body.password) {
       return res
         .status(httpStatus.BAD_REQUEST)
-        .json({ message: 'You must inform email and password.' });
+        .json({ message: 'Você precisa informar e-mail e senha.' }); // Mensagem mais amigável
     }
 
     const [rows] = await db.query('SELECT * FROM users WHERE email = ? AND password = ?', [
       req.body.email,
-      req.body.password,
     ]);
 
     if (rows.length === 0) {
@@ -55,6 +54,8 @@ router.post('/login', async (req, res) => {
     const user = {
       id: rows[0].id,
       type: rows[0].user_type,
+      email: rows[0].email,
+      name: rows[0].name,
     };
     const accessToken = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: '15m' });
     const refreshToken = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: '7d' });
@@ -62,7 +63,7 @@ router.post('/login', async (req, res) => {
     res.json({ user, accessToken, refreshToken });
   } catch (error) {
     console.error(error);
-    res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error' });
+    res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Erro interno do servidor.' });
   }
 });
 
