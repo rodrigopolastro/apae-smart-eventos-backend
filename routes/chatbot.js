@@ -20,4 +20,23 @@ router.get('/generateSuggestions', async (req, res) => {
   }
 });
 
+router.post('/answerQuestion', async (req, res) => {
+  try {
+    const question = req.body.question;
+    if (!question) {
+      return res.status(httpStatus.BAD_REQUEST).json({ message: 'You must inform the question to be answered' });
+    }
+    const eventsData = await getEventsData();
+    const dataStr = `Este é o JSON com o qual você trabalhará: ${JSON.stringify(eventsData)}.`
+    const questionPrompt = `Com base nesses dados e levando em conta as instruções fornecidas 
+     responda à seguinte pergunta: "${question}"`;
+    const prompt = `${SYSTEM_PROMPT}. ${dataStr}, ${questionPrompt}`;
+
+    res.json(prompt);
+  } catch (error) {
+    console.error(error);
+    res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error.' });
+  }
+});
+
 module.exports = router;

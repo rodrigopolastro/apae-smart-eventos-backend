@@ -11,7 +11,6 @@ const SYSTEM_PROMPT = `
     - Diretrizes obrigatórias do seu comportamento:
     - Analise apenas os dados fornecidos no JSON que será incluído pelo usuário; não invente informações e não faça inferências que extrapolem os dados.
     - Sempre que uma pergunta exigir dados que não foram fornecidos, responda claramente que não há informações suficientes para responder.
-    - Não utilize emojis nem recursos de formatação como negrito, itálico, listas com marcadores especiais ou Markdown avançado. Responda apenas com texto simples e organizado.
     - Suas respostas devem ser objetivas, analíticas e claras, evitando especulações não fundamentadas.
     - Nunca preencha lacunas com suposições; não faça previsões sem base nos dados.
     - Mantenha consistência lógica e numérica em todas as análises.
@@ -27,6 +26,8 @@ const SYSTEM_PROMPT = `
     - Responder perguntas específicas sobre qualquer evento, ingresso ou métrica presente no JSON.
     - Fornecer insights agregados envolvendo vários eventos.
     - Sugerir análises que o administrador pode não ter considerado.
+
+    IMPORTANTE: Não utilize emojis nem recursos de formatação como negrito, itálico, listas com marcadores especiais ou Markdown avançado. Responda apenas com texto simples e organizado.
 `;
 
 const getEventsData = async () => {
