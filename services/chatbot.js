@@ -91,11 +91,21 @@ const getEventsData = async () => {
     return eventsArray
 }
 
-async function askChatbot(prompt) {
+async function askChatbot(prompt, responseSchema = null) {
   const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-  const result = await model.generateContent(prompt);
-  return result.response.text();
+  if(!responseSchema){
+      const result = await model.generateContent(prompt);
+      return result.response.text();
+  }
+
+  const result = await model.generateContent(prompt, { 
+      generationConfig: { 
+          response_mime_type: "application/json",
+          responseSchema: responseSchema
+      } 
+  });
+  return JSON.parse(result.response.text());
 }
 
 module.exports = { 
