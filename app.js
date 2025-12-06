@@ -7,6 +7,7 @@ const usersRouter = require('./routes/users');
 const eventsRouter = require('./routes/events');
 const ticketsRouter = require('./routes/tickets');
 const paymentsRouter = require('./routes/payments');
+const chatbotRouter = require('./routes/chatbot');
 
 const app = express();
 
@@ -24,5 +25,6 @@ app.use('/users', usersRouter);
 app.use('/events', eventsRouter);
 app.use('/tickets', ticketsRouter);
 app.use('/payments', paymentsRouter);
+app.use('/chatbot', chatbotRouter);
 
 module.exports = app;
