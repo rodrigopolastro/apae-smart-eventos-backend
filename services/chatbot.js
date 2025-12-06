@@ -1,3 +1,5 @@
+const genAI = require('./gemini')
+
 const db = require('../db/db');
 
 const SYSTEM_PROMPT = `
@@ -89,7 +91,15 @@ const getEventsData = async () => {
     return eventsArray
 }
 
+async function askChatbot(prompt) {
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+  const result = await model.generateContent(prompt);
+  return result.response.text();
+}
+
 module.exports = { 
     getEventsData,
-    SYSTEM_PROMPT
+    SYSTEM_PROMPT,
+    askChatbot
 }

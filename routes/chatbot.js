@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const httpStatus = require('../constants/httpStatusesCodes');
-const { getEventsData, SYSTEM_PROMPT } = require('../services/chatbot');
+const { getEventsData, SYSTEM_PROMPT, askChatbot } = require('../services/chatbot');
 
 router.get('/generateSuggestions', async (req, res) => {
   try {
@@ -10,10 +10,14 @@ router.get('/generateSuggestions', async (req, res) => {
     const suggestionsPrompt = `Com base nestes dados, sugira três perguntas para o administrador 
     que irão dar insights valiosos para ele e que você pode responder com base nos dados fornecidos
     As perguntas devem ser curtas e simples, contendo apenas um foco por pergunta. Evite perguntas longas, 
-    múltiplas em uma só ou que misturem várias análises.`;
+    múltiplas em uma só ou que misturem várias análises.
+    
+    A sua resposta deve ser um json no formato "{ "sugestao1": "...", "sugestao2": "...", "sugestao3": "..."}" e nada mais`;
     const prompt = `${SYSTEM_PROMPT}. ${dataStr}, ${suggestionsPrompt}`;
 
-    res.json(prompt);
+    const answer = await askChatbot(prompt);
+
+    res.json({ answer: answer });
   } catch (error) {
     console.error(error);
     res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error.' });
@@ -31,8 +35,9 @@ router.post('/answerQuestion', async (req, res) => {
     const questionPrompt = `Com base nesses dados e levando em conta as instruções fornecidas 
      responda à seguinte pergunta: "${question}"`;
     const prompt = `${SYSTEM_PROMPT}. ${dataStr}, ${questionPrompt}`;
+    const answer = await askChatbot(prompt);
 
-    res.json(prompt);
+    res.json({ answer: answer });
   } catch (error) {
     console.error(error);
     res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error.' });
