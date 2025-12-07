@@ -1,8 +1,8 @@
 const express = require('express');
-const cors = require('cors'); 
+const cors = require('cors');
 
 const indexRouter = require('./routes/index');
-const authRouter = require('express').Router(); 
+const authRouter = require('./routes/auth');
 const usersRouter = require('./routes/users');
 const eventsRouter = require('./routes/events');
 const ticketsRouter = require('./routes/tickets');
@@ -10,11 +10,13 @@ const paymentsRouter = require('./routes/payments');
 
 const app = express();
 
-app.use(cors({
-    origin: 'http://localhost:8081' 
-}));
+app.use(
+  cors({
+    origin: '*',
+  })
+);
 
-app.use(express.json()); 
+app.use(express.json());
 
 app.use('/', indexRouter);
 app.use('/auth', authRouter);

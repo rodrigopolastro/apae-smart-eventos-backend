@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db/db');
 const httpStatus = require('../constants/httpStatusesCodes');
+const { getTicketsOfAssociate } = require('../models/tickets');
 
 // Get all users
 router.get('/', async (req, res) => {
@@ -27,9 +28,8 @@ router.get('/:id', async (req, res) => {
 // get tickets of user
 router.get('/:id/tickets', async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT * FROM tickets WHERE associate_id = ?', [req.params.id]);
-
-    res.json(rows);
+    const tickets = await getTicketsOfAssociate(req.params.id);
+    res.json(tickets);
   } catch (error) {
     console.error(error);
     res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Internal server error.' });
